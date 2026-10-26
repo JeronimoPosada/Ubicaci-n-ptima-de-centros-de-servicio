@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Red de Cobertura · Valle de Aburrá — Optimización no lineal y programación lineal</title>
+<meta name="description" content="Laboratorio interactivo de localización óptima de centros de servicio y asignación de tráfico sobre el Área Metropolitana del Valle de Aburrá.">
+<link rel="stylesheet" href="assets/css/app.css?v=20261026c">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📡</text></svg>">
+</head>
+<body>
+
+<!-- ==================== ENCABEZADO ==================== -->
+<header class="barra-superior">
+  <div class="marca">
+    <div class="marca-icono" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+        <circle cx="12" cy="12" r="2.4" fill="currentColor" stroke="none"/>
+        <path d="M7.8 7.8a6 6 0 0 0 0 8.4M16.2 16.2a6 6 0 0 0 0-8.4"/>
+        <path d="M4.9 4.9a10 10 0 0 0 0 14.2M19.1 19.1a10 10 0 0 0 0-14.2"/>
+      </svg>
+    </div>
+    <div class="marca-texto">
+      <h1>Red de Cobertura <span class="sep">·</span> Valle de Aburrá</h1>
+      <p>Ubicación óptima de centros de servicio y asignación de tráfico <span class="sep">·</span>
+         Optimización no lineal + programación lineal</p>
+    </div>
+  </div>
+
+  <nav class="etapas" aria-label="Etapas del modelo">
+    <button class="etapa-chip activa" data-ir="p-etapa1">
+      <span class="num">1</span><span class="txt">Sin restricciones</span>
+    </button>
+    <button class="etapa-chip" data-ir="p-etapa2">
+      <span class="num">2</span><span class="txt">Kuhn-Tucker</span>
+    </button>
+    <button class="etapa-chip" data-ir="p-etapa3">
+      <span class="num">3</span><span class="txt">Programación lineal</span>
+    </button>
+  </nav>
+
+  <div class="acciones-superior">
+    <button class="btn-icono solo-movil" id="btn-panel-izq" title="Controles" aria-label="Mostrar controles">☰</button>
+    <button class="btn-icono solo-movil" id="btn-panel-der" title="Resultados" aria-label="Mostrar resultados">▤</button>
+    <button class="btn-icono" id="btn-ayuda" title="Guía rápida (tecla ?)">?</button>
+    <button class="btn-icono" id="btn-encuadrar" title="Encuadrar el área metropolitana">⤢</button>
+    <button class="btn-fantasma" id="btn-informe">Informe</button>
+  </div>
+</header>
+
+<main class="disposicion">
+
+  <!-- ==================== PANEL IZQUIERDO: CONTROLES ==================== -->
+  <aside class="panel panel-izq" id="panel-izq">
+    <div class="panel-scroll">
+
+      <section class="bloque">
+        <h2 class="bloque-titulo">Escenario</h2>
+
+        <div class="control">
+          <div class="control-cabeza">
+            <label for="m-centros">Centros de servicio <code>m</code></label>
+            <output id="m-valor">4</output>
+          </div>
+          <input type="range" id="m-centros" min="1" max="8" step="1" value="4">
+          <p class="pista">Cantidad fija (limitación L5). Define cuántos grupos de demanda se forman.</p>
+        </div>
+
+        <div class="control">
+          <div class="control-cabeza">
+            <label for="intensidad">Intensidad de demanda</label>
+            <output id="intensidad-valor">2.5 Mbps / 1000 hab</output>
+          </div>
+          <input type="range" id="intensidad" min="0.5" max="10" step="0.1" value="2.5">
+          <p class="pista">Convierte población en tráfico <code>d<sub>i</sub></code>. Los pesos usan <code>w<sub>i</sub> = d<sub>i</sub></code>.</p>
+        </div>
+
+        <div class="control">
+          <div class="control-cabeza">
+            <label for="semilla">Siembra inicial</label>
+            <output id="semilla-valor">#7</output>
+          </div>
+          <div class="fila-botones">
+            <input type="range" id="semilla" min="1" max="60" step="1" value="7">
+            <button class="btn-mini" id="btn-resembrar" title="Nueva siembra aleatoria">⟳</button>
+          </div>
+          <p class="pista">La heurística de Cooper converge a un óptimo local: cambiar la siembra puede mejorarlo.</p>
+        </div>
+      </section>
+
+      <section class="bloque">
+        <h2 class="bloque-titulo">
+          Región factible <span class="etiqueta-etapa">Etapa 2</span>
+        </h2>
+
+        <label class="interruptor">
+          <input type="checkbox" id="region-activa" checked>
+          <span class="pista-interruptor"></span>
+          <span>Aplicar restricción <code>g(x,y) ≤ 0</code></span>
+        </label>
+
+        <div class="segmentado" id="region-tipo" role="radiogroup" aria-label="Tipo de región">
+          <button class="activo" data-valor="circulo">Disco</button>
+          <button data-valor="semiplano">Semiplano</button>
+        </div>
+
+        <div class="control" id="ctrl-radio">
+          <div class="control-cabeza">
+            <label for="region-radio">Radio <code>R</code></label>
+            <output id="radio-valor">4.5 km</output>
+          </div>
+          <input type="range" id="region-radio" min="0.8" max="18" step="0.1" value="4.5">
+        </div>
+
+        <div class="control" id="ctrl-angulo" hidden>
+          <div class="control-cabeza">
+            <label for="region-angulo">Orientación de la frontera</label>
+            <output id="angulo-valor">0°</output>
+          </div>
+          <input type="range" id="region-angulo" min="0" max="359" step="1" value="0">
+        </div>
+
+        <label class="interruptor">
+          <input type="checkbox" id="region-multi">
+          <span class="pista-interruptor"></span>
+          <span>Restringir todos los centros</span>
+        </label>
+
+        <p class="pista">Arrastra el disco sobre el mapa para moverlo, o su manija verde para cambiar el radio. Con el interruptor anterior apagado, la restricción se analiza sobre el centro agregado de la etapa 2.</p>
+      </section>
+
+      <section class="bloque">
+        <h2 class="bloque-titulo">
+          Ancho de banda <span class="etiqueta-etapa">Etapa 3</span>
+        </h2>
+
+        <div class="control">
+          <div class="control-cabeza">
+            <label for="holgura">Capacidad instalada <code>ΣB / Σd</code></label>
+            <output id="holgura-valor">1.15×</output>
+          </div>
+          <input type="range" id="holgura" min="0.85" max="2.2" step="0.01" value="1.15">
+          <p class="pista">Por debajo de 1.00× el problema se vuelve infactible: la demanda no se puede cubrir.</p>
+        </div>
+
+        <div class="segmentado" id="reparto" role="radiogroup" aria-label="Reparto de capacidad">
+          <button data-valor="proporcional">Proporcional</button>
+          <button class="activo" data-valor="uniforme">Uniforme</button>
+        </div>
+
+        <div class="control">
+          <div class="control-cabeza">
+            <label for="tarifa">Tarifa de transporte</label>
+            <output id="tarifa-valor">0.08 $/Mbps·km</output>
+          </div>
+          <input type="range" id="tarifa" min="0.01" max="1" step="0.01" value="0.08">
+        </div>
+
+        <div class="segmentado" id="metrica-costo" role="radiogroup" aria-label="Métrica de costo">
+          <button class="activo" data-valor="euclidiana">c ∝ distancia</button>
+          <button data-valor="cuadratica">c ∝ distancia²</button>
+        </div>
+
+        <div id="lista-anchos" class="lista-anchos"></div>
+      </section>
+
+      <section class="bloque">
+        <h2 class="bloque-titulo">Capas del mapa</h2>
+
+        <div class="selector-base" id="estilo-mapa">
+          <button class="activo" data-valor="oscuro">Oscuro</button>
+          <button data-valor="calles">Calles</button>
+          <button data-valor="relieve">Relieve</button>
+          <button data-valor="satelite">Satélite</button>
+          <button data-valor="vectorial">Sin conexión</button>
+        </div>
+
+        <div class="rejilla-toggles">
+          <label class="pildora"><input type="checkbox" id="cap-campo" checked><span>Superficie <i>f</i></span></label>
+          <label class="pildora"><input type="checkbox" id="cap-contornos" checked><span>Curvas de nivel</span></label>
+          <label class="pildora"><input type="checkbox" id="cap-voronoi" checked><span>Zonas de influencia</span></label>
+          <label class="pildora"><input type="checkbox" id="cap-asign" checked><span>Flujos <i>t<sub>ij</sub></i></span></label>
+          <label class="pildora"><input type="checkbox" id="cap-ref" checked><span>Río y Metro</span></label>
+          <label class="pildora"><input type="checkbox" id="cap-etiq" checked><span>Etiquetas</span></label>
+          <label class="pildora"><input type="checkbox" id="cap-optimos" checked><span>Óptimos E1/E2</span></label>
+          <label class="pildora"><input type="checkbox" id="cap-weber"><span>Punto de Weber</span></label>
+        </div>
+
+        <div class="control">
+          <div class="control-cabeza">
+            <label for="campo-metrica">Superficie mostrada</label>
+          </div>
+          <div class="segmentado chico" id="campo-metrica">
+            <button class="activo" data-valor="cuadratica">Σ w·d²</button>
+            <button data-valor="weber">Σ w·d</button>
+          </div>
+        </div>
+
+        <div class="control">
+          <div class="control-cabeza">
+            <label for="colormap">Paleta</label>
+          </div>
+          <div class="segmentado chico" id="colormap">
+            <button class="activo" data-valor="inferno">Inferno</button>
+            <button data-valor="viridis">Viridis</button>
+            <button data-valor="magma">Magma</button>
+            <button data-valor="turbo">Turbo</button>
+          </div>
+        </div>
+
+        <div class="control">
+          <div class="control-cabeza">
+            <label for="alpha-campo">Opacidad de la superficie</label>
+            <output id="alpha-valor">55 %</output>
+          </div>
+          <input type="range" id="alpha-campo" min="0" max="90" step="1" value="55">
+        </div>
+      </section>
+
+      <section class="bloque">
+        <h2 class="bloque-titulo">Acciones</h2>
+        <div class="rejilla-acciones">
+          <button class="btn" id="btn-gradiente">▶ Animar ∇f</button>
+          <button class="btn" id="btn-cooper">▶ Iterar Cooper</button>
+          <button class="btn" id="btn-png">Exportar PNG</button>
+          <button class="btn" id="btn-csv">Exportar CSV</button>
+          <button class="btn ancho" id="btn-reset">Restablecer escenario</button>
+        </div>
+      </section>
+
+    </div>
+  </aside>
+
+  <!-- ==================== MAPA ==================== -->
+  <section class="zona-mapa">
+    <canvas id="mapa" aria-label="Mapa interactivo del Valle de Aburrá"></canvas>
+
+    <div class="hud hud-sup-izq">
+      <div class="hud-fila"><span class="k">Lat / Lon</span><span class="v" id="hud-geo">—</span></div>
+      <div class="hud-fila"><span class="k">Plano local</span><span class="v" id="hud-km">—</span></div>
+      <div class="hud-fila"><span class="k">f(x,y)</span><span class="v" id="hud-f">—</span></div>
+    </div>
+
+    <div class="leyenda" id="leyenda"></div>
+
+    <div class="zoom-ctrl">
+      <button id="zoom-mas" title="Acercar">+</button>
+      <button id="zoom-menos" title="Alejar">−</button>
+    </div>
+
+    <div class="aviso" id="aviso" hidden></div>
+
+    <div class="inspector" id="inspector" hidden>
+      <button class="cerrar" id="inspector-cerrar">×</button>
+      <div id="inspector-cuerpo"></div>
+    </div>
+  </section>
+
+  <!-- ==================== PANEL DERECHO: RESULTADOS ==================== -->
+  <aside class="panel panel-der" id="panel-der">
+    <div class="pestanas" role="tablist">
+      <button class="pestana activa" data-panel="p-etapa1" role="tab">Etapa 1</button>
+      <button class="pestana" data-panel="p-etapa2" role="tab">Etapa 2</button>
+      <button class="pestana" data-panel="p-etapa3" role="tab">Etapa 3</button>
+      <button class="pestana" data-panel="p-sens" role="tab">Sensibilidad</button>
+      <button class="pestana" data-panel="p-hip" role="tab">Hipótesis</button>
+    </div>
+
+    <div class="panel-scroll">
+
+      <!-- ---------- ETAPA 1 ---------- -->
+      <div class="contenido-panel activo" id="p-etapa1" role="tabpanel">
+        <div class="tarjeta">
+          <h3>Optimización sin restricciones</h3>
+          <div class="formula">
+            <math display="block" xmlns="http://www.w3.org/1998/Math/MathML">
+              <mrow>
+                <mi>f</mi><mo>(</mo><mi>x</mi><mo>,</mo><mi>y</mi><mo>)</mo><mo>=</mo>
+                <munderover><mo>∑</mo><mrow><mi>i</mi><mo>=</mo><mn>1</mn></mrow><mi>n</mi></munderover>
+                <msub><mi>w</mi><mi>i</mi></msub>
+                <mrow><mo>[</mo>
+                  <msup><mrow><mo>(</mo><mi>x</mi><mo>−</mo><msub><mi>x</mi><mi>i</mi></msub><mo>)</mo></mrow><mn>2</mn></msup>
+                  <mo>+</mo>
+                  <msup><mrow><mo>(</mo><mi>y</mi><mo>−</mo><msub><mi>y</mi><mi>i</mi></msub><mo>)</mo></mrow><mn>2</mn></msup>
+                <mo>]</mo></mrow>
+              </mrow>
+            </math>
+          </div>
+          <p class="nota">Condición de primer orden <code>∇f = 0</code>. La solución es el centroide ponderado de los nodos de demanda.</p>
+          <div class="datos" id="e1-datos"></div>
+        </div>
+
+        <div class="tarjeta">
+          <h3>Matriz Hessiana y clasificación del punto crítico</h3>
+          <div id="e1-hessiana"></div>
+          <div class="veredicto" id="e1-veredicto"></div>
+        </div>
+
+        <div class="tarjeta">
+          <h3>Agrupamiento en <span id="e1-m">m</span> centros</h3>
+          <p class="nota">Alternancia de Cooper: asignar al centro más cercano y recolocar en el centroide ponderado del grupo. El costo decrece de forma monótona.</p>
+          <canvas class="grafico" id="g-convergencia" height="120"></canvas>
+          <div class="datos" id="e1-cooper"></div>
+        </div>
+      </div>
+
+      <!-- ---------- ETAPA 2 ---------- -->
+      <div class="contenido-panel" id="p-etapa2" role="tabpanel">
+        <div class="tarjeta">
+          <h3>Condiciones de Karush-Kuhn-Tucker</h3>
+          <div class="formula">
+            <math display="block" xmlns="http://www.w3.org/1998/Math/MathML">
+              <mrow>
+                <munder><mi>mín</mi><mrow><mi>x</mi><mo>,</mo><mi>y</mi></mrow></munder>
+                <mspace width="4px"/><mi>f</mi><mo>(</mo><mi>x</mi><mo>,</mo><mi>y</mi><mo>)</mo>
+                <mspace width="10px"/><mtext>sujeto a</mtext><mspace width="6px"/>
+                <mi>g</mi><mo>(</mo><mi>x</mi><mo>,</mo><mi>y</mi><mo>)</mo><mo>≤</mo><mn>0</mn>
+              </mrow>
+            </math>
+          </div>
+          <div class="expresion-g" id="e2-g"></div>
+          <div class="kkt-lista" id="e2-condiciones"></div>
+        </div>
+
+        <div class="tarjeta">
+          <h3>Efecto de la restricción</h3>
+          <div class="datos" id="e2-datos"></div>
+          <div class="barra-comparativa" id="e2-barras"></div>
+        </div>
+
+        <div class="tarjeta">
+          <h3>Multiplicador por centro</h3>
+          <p class="nota">Con varios centros, cada grupo tiene su propio centroide y su propio multiplicador: unos quedan dentro de la región (λ = 0) y otros sobre la frontera (λ &gt; 0).</p>
+          <div class="tabla-envoltura"><table class="tabla" id="e2-tabla"></table></div>
+          <p class="nota" id="e2-nota-tabla" style="margin-top:10px"></p>
+        </div>
+      </div>
+
+      <!-- ---------- ETAPA 3 ---------- -->
+      <div class="contenido-panel" id="p-etapa3" role="tabpanel">
+        <div class="tarjeta">
+          <h3>Modelo de transporte</h3>
+          <div class="formula">
+            <math display="block" xmlns="http://www.w3.org/1998/Math/MathML">
+              <mtable columnalign="right left">
+                <mtr>
+                  <mtd><mrow><mi>mín</mi><mspace width="4px"/><mi>Z</mi><mo>=</mo></mrow></mtd>
+                  <mtd><mrow>
+                    <munder><mo>∑</mo><mi>i</mi></munder><munder><mo>∑</mo><mi>j</mi></munder>
+                    <msub><mi>c</mi><mrow><mi>i</mi><mi>j</mi></mrow></msub>
+                    <msub><mi>t</mi><mrow><mi>i</mi><mi>j</mi></mrow></msub>
+                  </mrow></mtd>
+                </mtr>
+                <mtr>
+                  <mtd><mtext>s.a.</mtext></mtd>
+                  <mtd><mrow>
+                    <munder><mo>∑</mo><mi>j</mi></munder><msub><mi>t</mi><mrow><mi>i</mi><mi>j</mi></mrow></msub>
+                    <mo>=</mo><msub><mi>d</mi><mi>i</mi></msub>
+                  </mrow></mtd>
+                </mtr>
+                <mtr>
+                  <mtd></mtd>
+                  <mtd><mrow>
+                    <munder><mo>∑</mo><mi>i</mi></munder><msub><mi>t</mi><mrow><mi>i</mi><mi>j</mi></mrow></msub>
+                    <mo>≤</mo><msub><mi>B</mi><mi>j</mi></msub>
+                    <mo>,</mo><mspace width="8px"/>
+                    <msub><mi>t</mi><mrow><mi>i</mi><mi>j</mi></mrow></msub><mo>≥</mo><mn>0</mn>
+                  </mrow></mtd>
+                </mtr>
+              </mtable>
+            </math>
+          </div>
+          <div class="datos" id="e3-datos"></div>
+        </div>
+
+        <div class="tarjeta">
+          <h3>Programación lineal frente a vecino más cercano</h3>
+          <div class="duelo" id="e3-duelo"></div>
+          <div class="datos" id="e3-comparacion"></div>
+        </div>
+
+        <div class="tarjeta">
+          <h3>Carga por centro</h3>
+          <div class="tabla-envoltura"><table class="tabla" id="e3-carga"></table></div>
+        </div>
+
+        <div class="tarjeta">
+          <h3>Matriz de asignación <code>t<sub>ij</sub></code> (Mbps)</h3>
+          <p class="nota">Las celdas resaltadas son nodos repartidos entre dos o más centros: el reparto que la asignación al más cercano nunca produce.</p>
+          <div class="tabla-envoltura alta"><table class="tabla compacta" id="e3-matriz"></table></div>
+        </div>
+      </div>
+
+      <!-- ---------- SENSIBILIDAD ---------- -->
+      <div class="contenido-panel" id="p-sens" role="tabpanel">
+        <div class="tarjeta">
+          <h3>Precios sombra del ancho de banda</h3>
+          <p class="nota">Los potenciales del método MODI son la solución dual, pero están determinados salvo una constante. El precio sombra del ancho de banda es <code>dZ/dB<sub>j</sub> = u<sub>j</sub> + v<sub>ficticio</sub></code>: esa normalización deja en cero a los centros con capacidad ociosa. Cada valor se contrasta contra una diferencia finita, volviendo a resolver el modelo con <code>B<sub>j</sub> + δ</code>.</p>
+          <div class="tabla-envoltura"><table class="tabla" id="sens-duales"></table></div>
+        </div>
+
+        <div class="tarjeta">
+          <h3>Curva <code>Z</code> frente a la capacidad total</h3>
+          <p class="nota">Barrido completo del factor <code>ΣB / Σd</code>. El quiebre marca el punto en que la capacidad deja de ser el cuello de botella.</p>
+          <canvas class="grafico" id="g-sensibilidad" height="190"></canvas>
+          <div class="datos" id="sens-datos"></div>
+        </div>
+
+        <div class="tarjeta">
+          <h3>Frontera de infactibilidad</h3>
+          <div class="datos" id="sens-infact"></div>
+        </div>
+      </div>
+
+      <!-- ---------- HIPÓTESIS ---------- -->
+      <div class="contenido-panel" id="p-hip" role="tabpanel">
+        <div class="tarjeta hipotesis" id="h1"></div>
+        <div class="tarjeta hipotesis" id="h2"></div>
+        <div class="tarjeta hipotesis" id="h3"></div>
+        <div class="tarjeta">
+          <h3>Verificación numérica continua</h3>
+          <p class="nota">Cada recálculo vuelve a comprobar las tres hipótesis sobre el escenario que hay en pantalla. Mueve un nodo, cambia el radio o reduce la capacidad y observa cuál deja de cumplirse.</p>
+          <div class="datos" id="hip-resumen"></div>
+        </div>
+      </div>
+
+    </div>
+  </aside>
+</main>
+
+<!-- ==================== BARRA DE INDICADORES ==================== -->
+<footer class="barra-kpi" id="barra-kpi"></footer>
+
+<!-- ==================== AYUDA ==================== -->
+<div class="modal" id="modal-ayuda" hidden>
+  <div class="modal-caja">
+    <button class="cerrar" id="ayuda-cerrar">×</button>
+    <h2>Guía rápida</h2>
+    <div class="ayuda-rejilla">
+      <div>
+        <h4>Mapa</h4>
+        <ul>
+          <li>Arrastrar: desplazar el mapa</li>
+          <li>Rueda o doble clic: acercar</li>
+          <li>Arrastrar un nodo: mover esa zona de demanda</li>
+          <li>Arrastrar el disco verde: mover la región factible</li>
+          <li>Arrastrar la manija verde: cambiar el radio <code>R</code></li>
+          <li>Clic en un nodo o centro: abrir el inspector</li>
+        </ul>
+      </div>
+      <div>
+        <h4>Teclado</h4>
+        <ul>
+          <li><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> — ir a cada etapa</li>
+          <li><kbd>G</kbd> — animar el descenso por gradiente</li>
+          <li><kbd>C</kbd> — reiterar la alternancia de Cooper</li>
+          <li><kbd>R</kbd> — restablecer el escenario</li>
+          <li><kbd>F</kbd> — encuadrar el área metropolitana</li>
+          <li><kbd>?</kbd> — abrir y cerrar esta ayuda</li>
+        </ul>
+      </div>
+      <div>
+        <h4>Qué observar</h4>
+        <ul>
+          <li>La cruz blanca es el óptimo sin restricciones (etapa 1).</li>
+          <li>La flecha verde aparece cuando la restricción se activa: el óptimo se desplaza hasta la frontera (etapa 2).</li>
+          <li>Los enlaces punteados son nodos repartidos entre centros por el modelo lineal (etapa 3).</li>
+          <li>El anillo de cada centro es su utilización: rosado significa saturado.</li>
+        </ul>
+      </div>
+    </div>
+    <p class="credito">
+      Leandro Zapata Muñoz · Thomas Jiménez Duque · Jerónimo Posada Gil —
+      Universidad de San Buenaventura Colombia, Facultad de Ingenierías, Medellín.
+    </p>
+  </div>
+</div>
+
+<script src="assets/js/geo.js?v=20261026c"></script>
+<script src="assets/js/data.js?v=20261026c"></script>
+<script src="assets/js/mapengine.js?v=20261026c"></script>
+<script src="assets/js/optimizer.js?v=20261026c"></script>
+<script src="assets/js/transport.js?v=20261026c"></script>
+<script src="assets/js/field.js?v=20261026c"></script>
+<script src="assets/js/layers.js?v=20261026c"></script>
+<script src="assets/js/app.js?v=20261026c"></script>
+<script src="assets/js/ui.js?v=20261026c"></script>
+</body>
+</html>
